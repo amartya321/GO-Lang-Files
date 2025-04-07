@@ -125,6 +125,10 @@ func startWorker() {
 			job.Status = "completed"
 			job.CompletedAt = time.Now().Format(time.RFC3339)
 			jobQueueChanged = true
+			err := updateJobStatusInDB(*job)
+			if err != nil {
+				log.Printf("Failed to update job in DB: %v", err)
+			}
 			fmt.Printf("Finished job: ID=%s, Status=%s, CompletedAt=%s\n", job.ID, job.Status, job.CompletedAt)
 		} else {
 			mu.Unlock()
@@ -219,5 +223,14 @@ func insertJobToDB(job Job) error {
 	_, err := db.Exec(`INSERT INTO jobs (id, type, payload, status, completed_at)
 		VALUES (?, ?, ?, ?, ?)`,
 		job.ID, job.Type, job.Payload, job.Status, job.CompletedAt)
+	return err
+}
+
+func updateJobStatusInDB(job Job) error {
+	_, err := db.Exec(`
+		UPDATE jobs
+		SET status = ?, completed_at = ?
+		WHERE id = ?`,
+		job.Status, job.CompletedAt, job.ID)
 	return err
 }
