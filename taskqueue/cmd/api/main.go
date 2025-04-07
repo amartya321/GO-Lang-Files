@@ -104,8 +104,17 @@ func handleJobList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	//w.Header().Set("Content-Type", "application/json")
+	//json.NewEncoder(w).Encode(jobQueue)
+
+	jobs, err := getAllJobsFromDB()
+	if err != nil {
+		http.Error(w, "Failed to retrieve jobs", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(jobQueue)
+	json.NewEncoder(w).Encode(jobs)
 
 }
 
@@ -233,4 +242,28 @@ func updateJobStatusInDB(job Job) error {
 		WHERE id = ?`,
 		job.Status, job.CompletedAt, job.ID)
 	return err
+}
+
+func getAllJobsFromDB() ([]Job, error) {
+	rows, err := db.Query("SELECT id, type, payload, status, completed_at FROM jobs")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []Job
+
+	for rows.Next() {
+		var job Job
+		err := rows.Scan(&job.ID, &job.Type, &job.Payload, &job.Status, &job.CompletedAt)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return jobs, nil
+
 }
